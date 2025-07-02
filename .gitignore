@@ -1,0 +1,85 @@
+# Root level gitignore for Agentic RAG Chatbot
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Node modules
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Database files
+*.sqlite3
+*.db
+chroma_db/
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Audio/Video test files
+*.wav
+*.mp3
+*.mp4
+*.avi
+
+# Image uploads (keep structure, ignore content)
+images/*.png
+images/*.jpg
+images/*.jpeg
+!images/README.md
+
+# Google credentials
+credentials.json
+token.pickle
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Model files
+*.model
+*.bin
+models/
+
+# API keys and secrets
+.secrets
+.keys
+
+# Test outputs
+test_document.pdf
+recording_*.wav

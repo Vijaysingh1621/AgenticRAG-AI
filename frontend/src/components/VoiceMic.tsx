@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import axios from 'axios';
+import { Mic, MicOff, Loader2, Radio } from 'lucide-react';
 
 interface VoiceResponse {
   response: string;
@@ -114,31 +115,50 @@ const VoiceMic = ({ onResult }: { onResult: (result: VoiceResponse) => void }) =
   };
 
   return (
-    <div className="flex gap-2">
+    <div className="flex items-center gap-3">
       <button 
         onClick={recording ? stopRecording : startRecording}
         disabled={processing}
-        className={`p-3 rounded-lg text-white font-semibold ${
+        className={`relative flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 ${
           recording 
-            ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
+            ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white animate-pulse hover:from-red-600 hover:to-pink-600' 
             : processing
-              ? 'bg-gray-500 cursor-not-allowed'
-              : 'bg-green-500 hover:bg-green-600'
+              ? 'bg-gradient-to-r from-gray-400 to-gray-500 text-white cursor-not-allowed'
+              : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 hover:shadow-lg'
         }`}
       >
         {processing ? (
-          <>🔄 Processing...</>
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Processing...
+          </>
         ) : recording ? (
-          <>🔴 Stop Recording</>
+          <>
+            <MicOff className="w-4 h-4" />
+            Stop Recording
+          </>
         ) : (
-          <>🎙️ Voice Query</>
+          <>
+            <Mic className="w-4 h-4" />
+            Voice Query
+          </>
+        )}
+        
+        {/* Pulse animation for recording */}
+        {recording && (
+          <div className="absolute inset-0 rounded-xl bg-red-400 animate-ping opacity-20"></div>
         )}
       </button>
       
       {recording && (
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-          Recording... (auto-stop in 10s)
+        <div className="flex items-center gap-2 animate-fade-in">
+          <div className="flex items-center gap-1">
+            <Radio className="w-4 h-4 text-red-500 animate-pulse" />
+            <span className="text-sm text-slate-600 font-medium">Recording...</span>
+          </div>
+          <div className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
+            Auto-stop in 10s
+          </div>
         </div>
       )}
     </div>

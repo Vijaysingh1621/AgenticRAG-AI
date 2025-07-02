@@ -3,9 +3,11 @@
 ## 🎯 Summary: What You Actually Need
 
 ### ✅ **REQUIRED** (System won't work without this):
+
 - **Google API Key** - For Gemini LLM (the brain of the system)
 
 ### 🔧 **OPTIONAL** (System works great without these):
+
 - **Google Drive Credentials** - Currently using mock responses
 - **SerpAPI Key** - Currently using free DuckDuckGo
 
@@ -14,6 +16,7 @@
 ## 🔑 Required Setup
 
 ### Google API Key (Gemini LLM) - **ESSENTIAL**
+
 **Why needed**: Powers the AI that generates intelligent responses
 **Cost**: Free tier available (generous limits)
 
@@ -30,6 +33,7 @@
 ## 🌐 Optional Enhancements
 
 ### 1. Real Google Drive Access (Optional)
+
 **Current Status**: ✅ Working with mock responses
 **Why optional**: System simulates Google Drive responses for demo
 
@@ -53,6 +57,7 @@
 **First run**: Browser will open for Google OAuth consent
 
 ### 2. Enhanced Web Search (Optional)
+
 **Current Status**: ✅ Working with DuckDuckGo (free)
 **Why optional**: DuckDuckGo provides good results without API limits
 
@@ -76,11 +81,13 @@
 ## 💰 Cost Breakdown
 
 ### Free Tier Usage:
+
 - **Google Gemini API**: 60 queries/minute, 1500/day (very generous)
 - **DuckDuckGo**: Completely free, unlimited
 - **Google Drive API**: 100 requests/100 seconds/user (sufficient for most use)
 
 ### Paid Options:
+
 - **SerpAPI**: $50/month for 5000 searches (optional)
 - **Google Gemini**: $0.001 per 1000 tokens after free tier
 
@@ -98,17 +105,19 @@ The system is designed to work excellently with just the Google API key!
 ## 🔍 How to Check What's Working
 
 Run this command to see current status:
+
 ```bash
 curl http://localhost:8001/health
 ```
 
 Response shows which services are active:
+
 ```json
 {
   "status": "healthy",
   "services": {
     "pdf_processing": "✓",
-    "vector_store": "✓", 
+    "vector_store": "✓",
     "web_search": "✓",
     "google_drive_mcp": "✓",
     "speech_to_text": "✓"

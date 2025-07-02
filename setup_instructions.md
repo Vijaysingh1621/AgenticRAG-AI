@@ -14,18 +14,23 @@ This system implements all the requested features:
 ## Setup Steps
 
 ### 1. Get Google API Key
+
 1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
 2. Create a new API key
 3. Copy the API key
 
 ### 2. Configure Environment Variables
+
 Edit `backend/.env` file and replace `your_google_api_key_here` with your actual API key:
+
 ```
 GOOGLE_API_KEY=your_actual_google_api_key_here
 ```
 
 ### 3. (Optional) Setup Google Drive MCP
+
 To enable real Google Drive integration:
+
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select existing one
 3. Enable Google Drive API
@@ -35,33 +40,40 @@ To enable real Google Drive integration:
 **Note**: If you skip this step, the system will use a mock Google Drive client that simulates responses.
 
 ### 4. Install Frontend Dependencies
+
 ```bash
 cd frontend
 npm install
 ```
 
 ### 5. Start the Backend Server
+
 ```bash
 cd backend
 python main.py
 ```
+
 The backend will start on http://localhost:8001
 
 ### 6. Start the Frontend Server
+
 ```bash
 cd frontend
 npm run dev
 ```
+
 The frontend will start on http://localhost:5173
 
 ## How to Use
 
 ### 1. Upload PDF Documents
+
 - Click "Choose File" and select a PDF with text and images
 - The system will extract text and images, perform OCR on images
 - Wait for "PDF processed successfully" message
 
 ### 2. Query the System
+
 You can query in three ways:
 
 **A. Text Query**: Type your question and click "Ask"
@@ -71,7 +83,9 @@ You can query in three ways:
 **C. Voice File Upload**: Upload an audio file for transcription
 
 ### 3. View Results
+
 The system will show:
+
 - **Answer**: Generated response with citations [1], [2], etc.
 - **Sources Used**: Summary of PDF documents, Google Drive docs, and web search
 - **Citations**: Clickable source references with:
@@ -80,12 +94,14 @@ The system will show:
   - Web search results with URLs
 
 ### 4. Click Citations
+
 - Click on citation images to view full-size PDF page screenshots
 - Click on source links to open Google Drive docs or web pages
 
 ## System Architecture
 
 ### Backend (`/backend`)
+
 - **FastAPI Server** (`main.py`) - REST API with CORS
 - **RAG System** (`/rag`) - PDF processing, vector store, query engine
 - **Speech-to-Text** (`/stt`) - Whisper-based audio transcription
@@ -93,6 +109,7 @@ The system will show:
 - **Google Drive MCP** (`/mcp`) - Model Context Protocol for Google Drive
 
 ### Frontend (`/frontend`)
+
 - **React + TypeScript** - Modern web interface
 - **Components**:
   - `ChatBox.tsx` - Main chat interface with citations and image modals
@@ -113,13 +130,16 @@ The system will show:
 ### Common Issues
 
 1. **"GOOGLE_API_KEY not found"**
+
    - Make sure you've set the API key in `backend/.env`
 
 2. **Voice recording not working**
+
    - Check browser microphone permissions
    - Ensure you're using HTTPS or localhost
 
 3. **PDF images not showing**
+
    - Check that `backend/images/` directory exists
    - Verify PDF was processed successfully
 
@@ -136,19 +156,23 @@ The system will show:
 ## Advanced Configuration
 
 ### Custom Whisper Model
+
 In `backend/stt/streaming_stt.py`, change model size:
+
 ```python
 # Options: tiny, base, small, medium, large
 model = whisper.load_model("small")  # Better accuracy, slower
 ```
 
 ### Adjust Search Results
+
 In `backend/rag/query_engine.py`, modify:
+
 ```python
 # More RAG results
 rag_docs = vectorstore.similarity_search(user_input, k=10)
 
-# More web search results  
+# More web search results
 web_results = web_search_tool(user_input, max_results=5)
 ```
 

@@ -1,9 +1,11 @@
 # Quick Start Guide for Agentic RAG Chatbot
 
 ## ✅ System Status
+
 Your Agentic RAG system is 95% ready! Here's what's working:
 
 ### ✅ Working Components:
+
 - ✅ FastAPI backend with all dependencies installed
 - ✅ React frontend with TypeScript
 - ✅ PDF processing with OCR (PyMuPDF + Tesseract)
@@ -14,6 +16,7 @@ Your Agentic RAG system is 95% ready! Here's what's working:
 - ✅ Citation system with image modals
 
 ### 🔑 API Requirements:
+
 - **Required**: Google API Key (for Gemini LLM) - **Only 1 step needed!**
 - **Optional**: Google Drive credentials (currently using mock responses)
 - **Optional**: SerpAPI key (currently using free DuckDuckGo)
@@ -39,6 +42,7 @@ Your Agentic RAG system is 95% ready! Here's what's working:
 ### 🌐 Optional Enhancements
 
 #### 2. Google Drive MCP Setup (Optional)
+
 **Current Status**: ✅ Working with mock fallback (simulated responses)
 **For Real Google Drive**: Follow these steps to access your actual Google Drive files:
 
@@ -51,6 +55,7 @@ Your Agentic RAG system is 95% ready! Here's what's working:
 **Note**: Without real credentials, system uses mock Google Drive responses (works perfectly for demo)
 
 #### 3. Web Search API Enhancement (Optional)
+
 **Current Status**: ✅ Working with DuckDuckGo (free, no API key needed)
 **For Enhanced Web Search**: You can optionally use SerpAPI for better results:
 
@@ -66,17 +71,21 @@ Your Agentic RAG system is 95% ready! Here's what's working:
 ## 🚀 Start the System
 
 ### Terminal 1 - Start Backend:
+
 ```bash
 cd backend
 python main.py
 ```
+
 Server starts at: http://localhost:8001
 
 ### Terminal 2 - Start Frontend:
+
 ```bash
 cd frontend
 npm run dev
 ```
+
 Frontend starts at: http://localhost:5173
 
 ## 🧪 Test All Features
@@ -90,29 +99,35 @@ Frontend starts at: http://localhost:5173
 ## 📋 All Features Implemented
 
 ### 1. ✅ Streaming Speech-to-Text (STT)
+
 - **Implementation**: OpenAI Whisper model (base)
 - **How it works**: Click voice button → speak for 10 seconds → automatic transcription
 - **File**: `backend/stt/streaming_stt.py`
 
-### 2. ✅ MultiModal RAG 
+### 2. ✅ MultiModal RAG
+
 - **PDF Text Extraction**: PyMuPDF for clean text extraction
 - **Image Processing**: Automatic page screenshots saved as PNG
 - **OCR**: Tesseract OCR on images for text in graphics/charts
 - **File**: `backend/rag/pdf_processor.py`
 
 ### 3. ✅ Agentic Query System
+
 #### a) ✅ RAG + Web Search + MCP Google Drive
+
 - **RAG**: ChromaDB vector search on uploaded PDFs
 - **Web Search**: DuckDuckGo search for recent/external info
 - **Google Drive MCP**: Searches Google Drive docs (with mock fallback)
 - **File**: `backend/rag/query_engine.py`
 
 #### b) ✅ Citations & Grounding
+
 - **Smart Citations**: [1], [2], [3] format in responses
 - **Source Tracking**: Shows PDF pages, Google Drive docs, web results
 - **Source Summary**: Displays count of each source type used
 
 #### c) ✅ Click-to-View Images
+
 - **PDF Images**: Click citation images to view full-size page screenshots
 - **Image Modal**: Beautiful overlay with close button
 - **Web Links**: Clickable links to Google Drive and web sources
@@ -128,7 +143,7 @@ Frontend (React + TypeScript)
 
 Backend (FastAPI + Python)
 ├── main.py          # REST API server with CORS
-├── rag/            
+├── rag/
 │   ├── pdf_processor.py    # PDF text + image extraction
 │   ├── chroma_store.py     # Vector database
 │   ├── query_engine.py     # Multi-source query processing
@@ -144,6 +159,7 @@ Backend (FastAPI + Python)
 ## 🔧 Technical Details
 
 ### Voice Processing Flow:
+
 1. **Record**: Frontend captures audio via MediaRecorder API
 2. **Upload**: Audio sent to `/voice-query/` endpoint
 3. **Transcribe**: Whisper converts speech to text
@@ -151,6 +167,7 @@ Backend (FastAPI + Python)
 5. **Response**: Returns transcription + answer + citations
 
 ### PDF Processing Flow:
+
 1. **Upload**: PDF sent to `/upload-pdf/` endpoint
 2. **Extract**: PyMuPDF extracts text and renders page images
 3. **OCR**: Tesseract processes images for additional text
@@ -158,6 +175,7 @@ Backend (FastAPI + Python)
 5. **Store**: Vectors saved for similarity search
 
 ### Query Processing Flow:
+
 1. **Input**: Text or transcribed voice query
 2. **RAG Search**: Vector similarity search on PDF content
 3. **Web Search**: DuckDuckGo for recent/external information
@@ -168,6 +186,7 @@ Backend (FastAPI + Python)
 ## 🚀 You're Ready!
 
 Your system implements **all requested features**:
+
 - ✅ Streaming STT for voice queries
 - ✅ MultiModal RAG with PDF images & graphs
 - ✅ Agentic search (RAG + Web + Google Drive MCP)

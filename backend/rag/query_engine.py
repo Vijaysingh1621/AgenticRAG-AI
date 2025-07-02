@@ -18,46 +18,115 @@ if not google_api_key:
 
 llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", google_api_key=google_api_key)
 
+def is_external_query(query: str) -> bool:
+    """Determine if query is asking for external information not related to documents"""
+    
+    external_keywords = [
+        # Weather
+        "weather", "temperature", "climate", "rain", "snow", "sunny", "cloudy", "forecast",
+        # Current events & news
+        "news", "today", "current", "latest", "recent", "now", "happening",
+        # Financial/Market
+        "price", "stock", "market", "bitcoin", "cryptocurrency", "exchange", "trading", "usd", "eur", "dollar",
+        # Geographic/Location
+        "city", "country", "location", "map", "directions", "distance", "tokyo", "london", "paris", "new york",
+        # Time-sensitive
+        "time", "date", "schedule", "calendar", "when",
+        # General knowledge
+        "what is", "who is", "how to", "define", "meaning",
+        # Real-time data
+        "live", "real-time", "updates", "status", "current status"
+    ]
+    
+    # Document-related keywords that suggest PDF relevance
+    document_keywords = [
+        "document", "pdf", "file", "page", "section", "chapter", "report",
+        "uploaded", "this document", "the document", "according to", "mentioned",
+        "content", "text", "written", "shows", "describes", "analysis"
+    ]
+    
+    query_lower = query.lower()
+    
+    # Check for document keywords first - if found, it's likely document-related
+    has_document_keywords = any(keyword in query_lower for keyword in document_keywords)
+    if has_document_keywords:
+        return False  # Likely document-related
+    
+    # Check for external keywords - if found and no document keywords, it's external
+    has_external_keywords = any(keyword in query_lower for keyword in external_keywords)
+    
+    # Special check for very obvious external queries
+    obvious_external_patterns = [
+        "weather in", "temperature in", "price of", "cost of", "bitcoin", "cryptocurrency",
+        "current", "today", "latest", "news about", "what happened", "live"
+    ]
+    
+    is_obvious_external = any(pattern in query_lower for pattern in obvious_external_patterns)
+    
+    return has_external_keywords or is_obvious_external
+
+def calculate_text_relevance(query: str, text: str, threshold: float = 0.2) -> float:
+    """Calculate relevance score between query and text"""
+    query_terms = query.lower().split()
+    text_lower = text.lower()
+    
+    # Count matching terms
+    matches = sum(1 for term in query_terms if term in text_lower)
+    relevance = matches / len(query_terms) if query_terms else 0
+    
+    return relevance
+
 def query_rag(user_input, k=5):
-    """Enhanced RAG with intelligent source selection based on query relevance"""
+    """Enhanced RAG with intelligent source selection and relevance filtering"""
     
     # Initialize all sources
     vectorstore = load_chroma()
     drive_client = get_drive_client()
     
-    # 1. Local RAG Search (always check first)
-    rag_docs = vectorstore.similarity_search(user_input, k=k)
+    # Pre-check: Is this an external query?
+    is_external = is_external_query(user_input)
+    print(f"🔍 Query type: {'External' if is_external else 'Mixed/Document'}")
+    
+    # 1. Local RAG Search with smart filtering
+    rag_docs = []
     rag_context = []
     citations = []
-    
-    # Calculate relevance score based on similarity
     pdf_relevance_score = 0
-    if rag_docs:
-        # Simple relevance check - if we have good matches from PDF
-        for doc in rag_docs:
-            # Check if the query terms appear in the retrieved content
-            query_terms = user_input.lower().split()
-            content_lower = doc.page_content.lower()
-            matches = sum(1 for term in query_terms if term in content_lower)
-            if matches > 0:
-                pdf_relevance_score += matches / len(query_terms)
+    relevant_docs = []
     
-    # Normalize relevance score
-    pdf_relevance_score = pdf_relevance_score / len(rag_docs) if rag_docs else 0
-    
-    print(f"📊 PDF relevance score: {pdf_relevance_score:.2f}")
-    
-    # Add PDF citations if relevant
-    for i, doc in enumerate(rag_docs):
-        rag_context.append(doc.page_content)
-        citation_num = len(citations) + 1
-        citations.append({
-            "citation": f"[{citation_num}]",
-            "page": doc.metadata.get("page", "Unknown"),
-            "image": doc.metadata.get("image_path", None),
-            "type": "pdf",
-            "content": doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content
-        })
+    # Only search PDF if it's potentially relevant
+    if not is_external:
+        print("📄 Searching PDF documents...")
+        rag_docs = vectorstore.similarity_search(user_input, k=k)
+        
+        if rag_docs:
+            for doc in rag_docs:
+                relevance = calculate_text_relevance(user_input, doc.page_content)
+                if relevance > 0.2:  # Stricter threshold for mixed queries
+                    relevant_docs.append((doc, relevance))
+                    pdf_relevance_score += relevance
+        
+        # Normalize relevance score
+        pdf_relevance_score = pdf_relevance_score / len(relevant_docs) if relevant_docs else 0
+        
+        print(f"📊 PDF relevance score: {pdf_relevance_score:.2f}")
+        print(f"📄 Relevant PDF chunks: {len(relevant_docs)}/{len(rag_docs)}")
+        
+        # Add only relevant PDF citations
+        for doc, relevance in relevant_docs:
+            rag_context.append(doc.page_content)
+            citation_num = len(citations) + 1
+            citations.append({
+                "citation": f"[{citation_num}]",
+                "page": doc.metadata.get("page", "Unknown"),
+                "image": doc.metadata.get("image_path", None),
+                "type": "pdf",
+                "content": doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content,
+                "relevance": relevance
+            })
+    else:
+        print("📄 Skipping PDF search - query identified as external")
+        pdf_relevance_score = 0
     
     # 2. Intelligent Source Selection
     use_web_search = False
@@ -79,45 +148,62 @@ def query_rag(user_input, k=5):
         print("🔍 Query asks for documents, checking Google Drive...")
         use_drive_search = True
     
-    # 3. Google Drive MCP Search
+    # 3. Google Drive MCP Search with relevance filtering
     drive_results = []
     if use_drive_search:
         print("☁️ Searching Google Drive...")
         try:
-            drive_results = drive_client.search_and_retrieve(user_input, max_results=3)
-            for result in drive_results:
-                citation_num = len(citations) + 1
-                citations.append({
-                    "citation": f"[{citation_num}]",
-                    "page": "N/A",
-                    "image": None,
-                    "type": "google_drive",
-                    "url": result.get("url", ""),
-                    "content": result.get("content", ""),
-                    "name": result.get("name", "Google Drive Document")
-                })
+            raw_drive_results = drive_client.search_and_retrieve(user_input, max_results=5)
+            # Filter relevant Google Drive results
+            for result in raw_drive_results:
+                content = result.get("content", "")
+                name = result.get("name", "")
+                combined_text = f"{name} {content}"
+                
+                relevance = calculate_text_relevance(user_input, combined_text)
+                if relevance > 0.1:  # Only include if at least 10% relevance
+                    drive_results.append(result)
+                    citation_num = len(citations) + 1
+                    citations.append({
+                        "citation": f"[{citation_num}]",
+                        "page": "N/A",
+                        "image": None,
+                        "type": "google_drive",
+                        "url": result.get("url", ""),
+                        "content": content[:200] + "..." if len(content) > 200 else content,
+                        "name": name,
+                        "relevance": relevance
+                    })
+            print(f"☁️ Relevant Google Drive docs: {len(drive_results)}/{len(raw_drive_results)}")
         except Exception as e:
             print(f"Google Drive search failed: {e}")
     
-    # 4. Web Search
+    # 4. Web Search with relevance filtering
     web_context = ""
     if use_web_search:
         print("🌐 Searching the web...")
         try:
             web_results = web_search_tool(user_input)
-            web_context = web_results
             
-            # Add web search citation
-            if web_context:
-                citation_num = len(citations) + 1
-                citations.append({
-                    "citation": f"[{citation_num}]",
-                    "page": "N/A",
-                    "image": None,
-                    "type": "web",
-                    "url": "https://duckduckgo.com",
-                    "content": web_context[:200] + "..." if len(web_context) > 200 else web_context
-                })
+            # Check if web results are relevant
+            if web_results:
+                web_relevance = calculate_text_relevance(user_input, web_results)
+                if web_relevance > 0.1:  # Only include if relevant
+                    web_context = web_results
+                    citation_num = len(citations) + 1
+                    citations.append({
+                        "citation": f"[{citation_num}]",
+                        "page": "N/A",
+                        "image": None,
+                        "type": "web",
+                        "url": "https://duckduckgo.com",
+                        "content": web_context[:200] + "..." if len(web_context) > 200 else web_context,
+                        "relevance": web_relevance
+                    })
+                    print(f"🌐 Web search relevance: {web_relevance:.2f}")
+                else:
+                    print(f"🌐 Web results not relevant (score: {web_relevance:.2f})")
+                    web_context = ""
         except Exception as e:
             print(f"Web search failed: {e}")
             web_context = ""
@@ -213,8 +299,15 @@ Answer with citations:""",
         "response": answer_text,
         "citations": validated_citations,
         "sources_used": {
-            "pdf_documents": len(rag_docs),
-            "google_drive_docs": len(drive_results),
-            "web_search": 1 if web_context else 0
+            "pdf_documents": len(relevant_docs),  # Only count relevant PDF chunks
+            "google_drive_docs": len(drive_results),  # Only count relevant Drive docs
+            "web_search": 1 if web_context else 0  # Only count if web results are relevant
+        },
+        "relevance_info": {
+            "pdf_relevance_score": pdf_relevance_score,
+            "total_pdf_chunks_found": len(rag_docs),
+            "relevant_pdf_chunks": len(relevant_docs),
+            "relevant_drive_docs": len(drive_results),
+            "web_search_used": bool(web_context)
         }
     }

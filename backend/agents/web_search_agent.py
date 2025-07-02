@@ -20,7 +20,7 @@ search_tool = DuckDuckGoSearchResults(num_results=5)
 #     print("ℹ️ Using DuckDuckGo for web search (add SERPAPI_API_KEY to .env for SerpAPI)")
 
 def web_search_tool(query: str, max_results: int = 3) -> str:
-    """Search the web using DuckDuckGo and return formatted results"""
+    """Search the web using DuckDuckGo and return formatted results with relevance filtering"""
     try:
         results = search_tool.run(query)
         
@@ -35,20 +35,35 @@ def web_search_tool(query: str, max_results: int = 3) -> str:
         else:
             results_list = results
         
-        # Format the results nicely
+        # Format and filter relevant results
         formatted_results = []
-        for i, result in enumerate(results_list[:max_results]):
+        query_terms = query.lower().split()
+        
+        for i, result in enumerate(results_list[:max_results * 2]):  # Get more to filter
             if isinstance(result, dict):
                 title = result.get('title', 'No title')
                 snippet = result.get('snippet', result.get('content', 'No content'))
                 link = result.get('link', result.get('url', ''))
                 
-                formatted_result = f"**{title}**\n{snippet}"
-                if link:
-                    formatted_result += f"\nSource: {link}"
-                formatted_results.append(formatted_result)
+                # Check relevance - title and snippet should contain query terms
+                combined_text = f"{title} {snippet}".lower()
+                relevance_score = sum(1 for term in query_terms if term in combined_text) / len(query_terms)
+                
+                # Only include if at least 20% of query terms are found
+                if relevance_score > 0.2:
+                    formatted_result = f"**{title}**\n{snippet}"
+                    if link:
+                        formatted_result += f"\nSource: {link}"
+                    formatted_results.append(formatted_result)
+                    
+                    # Stop when we have enough relevant results
+                    if len(formatted_results) >= max_results:
+                        break
             else:
                 formatted_results.append(str(result))
+        
+        if not formatted_results:
+            return "No relevant web search results found for this query."
         
         return "\n\n".join(formatted_results)
         

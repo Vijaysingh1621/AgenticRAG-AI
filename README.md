@@ -2,7 +2,7 @@
 
 ## 🎯 Project Overview
 
-You now have a **fully functional Agentic RAG system** that implements all the requested features:
+**fully functional Agentic RAG system** that implements all the requested features:
 
 ### ✅ **Feature 1: Streaming Speech-to-Text (STT)**
 

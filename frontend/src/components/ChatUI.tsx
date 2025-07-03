@@ -14,7 +14,7 @@ import {
   BookOpen,
   Activity
 } from 'lucide-react';
-import VoiceMic from './VoiceMic';
+import DirectDeepgramVoice from './DirectDeepgramVoice';
 
 type Citation = {
   citation: string;
@@ -47,15 +47,38 @@ const ChatUI = () => {
   const [loading, setLoading] = useState(false);
 
   const sendQuery = async (q: string) => {
+    // Validate input is not empty
+    const trimmedQuery = q.trim();
+    if (!trimmedQuery) {
+      console.warn('Empty query attempted');
+      return;
+    }
+    
     setLoading(true);
     try {
-      const res = await axios.post("/query/", new URLSearchParams({ query: q }));
+      const res = await axios.post("/query/", new URLSearchParams({ query: trimmedQuery }));
       handleQueryResponse(res.data);
     } catch (error) {
       console.error('Error sending query:', error);
       setAnswer("Sorry, there was an error processing your query. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVoiceTranscript = (text: string) => {
+    // Update the input field with the transcript
+    setQuery(text);
+    setTranscription(text);
+  };
+
+  const handleVoiceAutoSend = (text: string) => {
+    // Validate and auto-send the voice transcript
+    const trimmedText = text.trim();
+    if (trimmedText) {
+      setQuery(trimmedText);
+      setTranscription(trimmedText);
+      sendQuery(trimmedText);
     }
   };
 
@@ -66,14 +89,6 @@ const ChatUI = () => {
     if (data.transcription) {
       setTranscription(data.transcription);
     }
-  };
-
-  const handleVoiceResult = (result: QueryResponse) => {
-    if (result.transcription) {
-      setQuery(result.transcription);
-      setTranscription(result.transcription);
-    }
-    handleQueryResponse(result);
   };
 
   const openImageModal = (imagePath: string) => {
@@ -150,7 +165,11 @@ const ChatUI = () => {
             )}
           </button>
           
-          <VoiceMic onResult={handleVoiceResult} />
+          {/* Direct Deepgram Voice Input */}
+          <DirectDeepgramVoice 
+            onTranscript={handleVoiceTranscript}
+            onAutoSend={handleVoiceAutoSend}
+          />
         </div>
       </div>
 

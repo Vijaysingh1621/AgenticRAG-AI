@@ -1,19 +1,87 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from rag.pdf_processor import extract_text_from_pdf, extract_images_from_pdf
 from rag.chroma_store import build_chroma
 from rag.query_engine import query_rag
-from stt.streaming_stt import transcribe_audio_file
+from stt.deepgram_stt import transcribe_audio_file, get_deepgram_status
+from stt.simple_websocket import websocket_endpoint
 import os
 from pathlib import Path
 import tempfile
 import shutil
+import time
+import gc
 from dotenv import load_dotenv
+import asyncio
 
 # Load environment variables
 load_dotenv()
+
+def cleanup_file_safely(file_path: str, max_retries: int = 5, delay: float = 0.2) -> None:
+    """
+    Safely cleanup a temporary file with retries and proper error handling.
+    
+    Args:
+        file_path: Path to the file to cleanup
+        max_retries: Maximum number of retry attempts
+        delay: Delay between retry attempts in seconds
+    """
+    for attempt in range(max_retries):
+        try:
+            if os.path.exists(file_path):
+                # Force garbage collection to release any file handles
+                gc.collect()
+                
+                # Longer delay for subsequent attempts
+                if attempt > 0:
+                    time.sleep(delay * (attempt + 1))
+                
+                # Try to change file permissions first
+                try:
+                    os.chmod(file_path, 0o777)
+                except Exception:
+                    pass
+                
+                # Try to remove the file
+                os.unlink(file_path)
+                print(f"🗑️ Cleaned up temp file: {file_path}")
+                return
+                
+        except PermissionError as e:
+            print(f"⚠️ Permission error cleaning up {file_path} (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                # Try to kill any processes that might be holding the file
+                try:
+                    import psutil
+                    for proc in psutil.process_iter(['pid', 'name', 'open_files']):
+                        try:
+                            if proc.info['open_files']:
+                                for f in proc.info['open_files']:
+                                    if file_path in f.path:
+                                        print(f"⚠️ Found process {proc.info['name']} holding file, attempting to close...")
+                                        # Don't kill the process, just note it
+                                        break
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            pass
+                except ImportError:
+                    pass  # psutil not available
+                
+                # Exponential backoff
+                time.sleep(delay * (2 ** attempt))
+            else:
+                print(f"❌ Failed to cleanup {file_path} after {max_retries} attempts")
+                # As a last resort, schedule for cleanup later
+                try:
+                    import atexit
+                    atexit.register(lambda: os.unlink(file_path) if os.path.exists(file_path) else None)
+                    print(f"📝 Scheduled {file_path} for cleanup on exit")
+                except Exception:
+                    pass
+        except Exception as e:
+            print(f"⚠️ Error cleaning up {file_path}: {e}")
+            break
 
 app = FastAPI(title="Agentic RAG Chatbot", description="Advanced RAG with STT, MultiModal, Web Search, and MCP")
 
@@ -91,25 +159,44 @@ async def upload_pdf(file: UploadFile = File(...)):
 
 @app.post("/upload-audio/")
 async def upload_audio(file: UploadFile = File(...)):
-    """Upload audio file and transcribe using Whisper STT"""
+    """Upload audio file and transcribe using Deepgram STT (with Whisper fallback)"""
     try:
         # Save uploaded audio file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
             shutil.copyfileobj(file.file, tmp_file)
             tmp_path = tmp_file.name
         
-        # Transcribe audio
-        transcription = transcribe_audio_file(tmp_path)
+        # Transcribe audio using Deepgram
+        transcription = await transcribe_audio_file(tmp_path)
         
         # Clean up temp file
         os.unlink(tmp_path)
         
         return {
             "transcription": transcription,
-            "filename": file.filename
+            "filename": file.filename,
+            "provider": "deepgram" if os.getenv("DEEPGRAM_API_KEY") else "whisper_fallback"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error transcribing audio: {str(e)}")
+
+@app.get("/stt-status")
+async def get_stt_status():
+    """Get STT service status and available providers"""
+    try:
+        deepgram_status = get_deepgram_status()
+        return {
+            "deepgram": deepgram_status,
+            "whisper_fallback": {"available": True, "message": "Whisper is available as fallback"},
+            "streaming_supported": deepgram_status["streaming_supported"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking STT status: {str(e)}")
+
+@app.websocket("/ws/streaming-stt/{client_id}")
+async def websocket_streaming_stt(websocket: WebSocket, client_id: str):
+    """WebSocket endpoint for real-time streaming STT"""
+    await websocket_endpoint(websocket, client_id)
 
 @app.post("/query/")
 async def query_endpoint(query: str = Form(...)):
@@ -147,17 +234,18 @@ async def voice_query(audio_file: UploadFile = File(...)):
         
         print(f"🎵 Audio saved to: {tmp_path}, size: {len(content)} bytes")
         
-        # Transcribe audio
+        # Transcribe audio using Deepgram
         try:
-            transcription = transcribe_audio_file(tmp_path)
+            transcription = await transcribe_audio_file(tmp_path)
             print(f"📝 Transcription result: '{transcription}'")
         except Exception as transcribe_error:
             print(f"❌ Transcription failed: {transcribe_error}")
-            os.unlink(tmp_path)
+            # Clean up temp file before raising error
+            cleanup_file_safely(tmp_path)
             raise HTTPException(status_code=500, detail=f"Audio transcription failed: {str(transcribe_error)}")
         
         # Clean up temp file
-        os.unlink(tmp_path)
+        cleanup_file_safely(tmp_path)
         
         # Query RAG with transcription
         if transcription and transcription.strip():
